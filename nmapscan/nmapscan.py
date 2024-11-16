@@ -64,7 +64,7 @@ class nmapscan(BHunters):
                                 portdata += f" ,Script: {script}"
                             data["ports"].append(portdata)
                             if product !="":
-                                techs[product]=version
+                                techs[newurl]=[product,version]
                 firewall=False
                 for portdata in data["ports"]:
                     if "cloudflare" in portdata.lower() or "cloudfront" in portdata.lower():
@@ -83,11 +83,7 @@ class nmapscan(BHunters):
         
     def process(self, task: Task) -> None:
         
-        if task.payload["source"]=="producer":
-            url = task.payload_persistent["domain"]
-    
-        else:
-            url = task.payload["data"]
+        url = task.payload["subdomain"]
         url = re.sub(r'^https?://', '', url)
         url = url.rstrip('/')
         self.log.info("Starting processing new url")
@@ -109,5 +105,11 @@ class nmapscan(BHunters):
             ports_str = "\n".join(ports)
             self.send_discord_webhook("Nmap Result "+url,ports_str,"main")
         if techs != {}:
-            collection.update_one({"Domain": url}, {'$push': {'Technology': techs}})
+            domain_document = collection.find_one({"Domain": url})
+            if domain_document:
+                if "Technology" in domain_document and "nmap" in domain_document["Technology"]:
+                    collection.update_one({"Domain": url}, {"$push": {"Technology.nmap": techs}})
+                else:
+                    collection.update_one({"Domain": url}, {"$set": {"Technology.nmap": [techs]}})
+
         self.update_task_status(url,"Finished")
