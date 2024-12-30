@@ -7,6 +7,7 @@ from b_hunters.bhunter import BHunters
 from karton.core import Task
 import re
 import nmap
+from bson.objectid import ObjectId
 
 class nmapscan(BHunters):
     """
@@ -86,18 +87,21 @@ class nmapscan(BHunters):
         url = task.payload["subdomain"]
         url = re.sub(r'^https?://', '', url)
         url = url.rstrip('/')
+        report_id=task.payload_persistent["report_id"]
         self.log.info("Starting processing new url")
         self.log.warning(url)
         self.update_task_status(url,"Started")
 
         result,techs=self.scan(url)
+        self.waitformongo()
+
         db=self.db
 
         self.log.info(result)
-        collection = db["domains"]
-        existing_document = collection.find_one({"Domain": url})
+        collection = db["reports"]
+        existing_document = collection.find_one({"_id":ObjectId(report_id)})
         if existing_document is not None:
-            collection.update_one({"Domain": url}, {'$push': {'Ports': result}})
+            collection.update_one({"_id":ObjectId(report_id)}, {'$push': {'Ports': result}}, upsert=True)
             ports = []
             for item in result:
                 ports.extend(item["ports"])
@@ -105,11 +109,10 @@ class nmapscan(BHunters):
             ports_str = "\n".join(ports)
             self.send_discord_webhook("Nmap Result "+url,ports_str,"main")
         if techs != {}:
-            domain_document = collection.find_one({"Domain": url})
-            if domain_document:
-                if "Technology" in domain_document and "nmap" in domain_document["Technology"]:
-                    collection.update_one({"Domain": url}, {"$push": {"Technology.nmap": techs}})
+            if existing_document:
+                if "Technology" in existing_document and "nmap" in existing_document["Technology"]:
+                    collection.update_one({"_id":ObjectId(report_id)}, {"$push": {"Technology.nmap": techs}})
                 else:
-                    collection.update_one({"Domain": url}, {"$set": {"Technology.nmap": [techs]}})
+                    collection.update_one({"_id":ObjectId(report_id)}, {"$set": {"Technology.nmap": [techs]}})
 
         self.update_task_status(url,"Finished")
