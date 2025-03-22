@@ -105,9 +105,15 @@ class nmapscan(BHunters):
             ports = []
             for item in result:
                 ports.extend(item["ports"])
-
-            ports_str = "\n".join(ports)
-            self.send_discord_webhook("Nmap Result "+url,ports_str,"main")
+            if ports != []:
+                new_ports=[]
+                for port in ports:
+                    if "Port: 80 " not in port and "Port: 443 " not in port:
+                        new_ports.append(port)
+                if new_ports != []:
+                            
+                    ports_str = "\n".join(new_ports)       
+                    self.send_discord_webhook("Nmap Result "+url,ports_str,"main")
         if techs != {}:
             if existing_document:
                 if "Technology" in existing_document and "nmap" in existing_document["Technology"]:
