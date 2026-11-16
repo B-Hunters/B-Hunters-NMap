@@ -36,13 +36,26 @@ class nmapscan(BHunters):
         techs={}
         try:
             options = "-sC -sV"
+            # The platform names the target as host:port.  nmap does not
+            # understand that notation - it would take the whole string
+            # for a host name - and it would then scan the default ports
+            # and miss the port the application actually listens on.
+            host, separator, port = newurl.partition(":")
+            if not (separator and port.isdigit()):
+                host = newurl
+            else:
+                options = f"{options} -p {port}"
             scanner = nmap.PortScanner()
             # Run a basic scan on the target
-            scanner.scan(newurl, arguments=options)
+            scanner.scan(host, arguments=options)
             # Print the scan results
             for host in scanner.all_hosts():
                 data={}
                 data["target"]=newurl
+                # A host that is up but has no open port is a result, not
+                # an error: the port list has to exist before the protocol
+                # loop, because the loop may not run at all.
+                data["ports"]=[]
                 # print("Host: ", host)
                 data["host"]=host
                 # print("State: ", scanner[host].state())
@@ -101,7 +114,8 @@ class nmapscan(BHunters):
         collection = db["reports"]
         existing_document = collection.find_one({"_id":ObjectId(report_id)})
         if existing_document is not None:
-            collection.update_one({"_id":ObjectId(report_id)}, {'$push': {'Ports': result}}, upsert=True)
+            if result:
+                collection.update_one({"_id":ObjectId(report_id)}, {'$push': {'Ports': result}}, upsert=True)
             ports = []
             for item in result:
                 ports.extend(item["ports"])
