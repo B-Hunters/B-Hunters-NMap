@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install nmap -y && apt clean && rm -rf /var/lib/ap
 # release: a worker that calls auth_headers(task) against a release that
 # does not have it fails inside the scan.  scripts/build_workers.sh passes
 # the local wheel; the default is the published release.
-ARG B_HUNTERS_WHEEL=b-hunters==1.5.1
+ARG B_HUNTERS_WHEEL=b-hunters==1.5.2
 RUN pip install --no-cache-dir ${B_HUNTERS_WHEEL} python-nmap 
 WORKDIR /app/service
 COPY nmapscan /app/service/nmapscan
